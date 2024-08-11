@@ -67,6 +67,7 @@ typedef struct {
 	VkPipeline graphics_pipeline;
 	VkRenderPass render_pass;
 	VkCommandBuffer *command_buffers;
+	VkBuffer vertex_buffer;
 	VkSemaphore *image_avail_sems;
 	VkSemaphore *rend_finished_sems;
 	VkFence *in_flight_fences;

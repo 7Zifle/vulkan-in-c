@@ -57,6 +57,22 @@ static VkVertexInputAttributeDescription *vertex_attribute_description()
 	return attr_descs;
 }
 
+static Uint32 find_memory_flags(vulkan_engine *self, Uint32 type_filter,
+				VkMemoryPropertyFlags props)
+{
+	VkPhysicalDeviceMemoryProperties mem_props;
+	vkGetPhysicalDeviceMemoryProperties(self->phy_dev, &mem_props);
+
+	for (Uint32 i = 0; i < mem_props.memoryTypeCount; i++) {
+		if ((type_filter & (1 << i)) &&
+		    (mem_props.memoryTypes[i].propertyFlags & props) == props) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+
 static bool check_validation_layer_support()
 {
 	Uint32 layer_cnt;
@@ -642,7 +658,7 @@ void create_graphics_pipeline(vulkan_engine *self)
 	visci.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
 	visci.vertexBindingDescriptionCount = 1;
-	visci.vertexAttributeDescriptionCount = 2;//TODO hard coded baby
+	visci.vertexAttributeDescriptionCount = 2; //TODO hard coded baby
 
 	visci.pVertexBindingDescriptions = &vertex_bind_desc;
 	visci.pVertexAttributeDescriptions = vertex_attr_decs;
@@ -1049,6 +1065,24 @@ void vulkan_engine_draw_frame(vulkan_engine *self)
 	self->current_frame = (self->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+static void create_vertex_buffer(vulkan_engine *self)
+{
+	VkBufferCreateInfo buf_info;
+	memset(&buf_info, 1, sizeof(VkBufferCreateInfo));
+
+	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	buf_info.size = sizeof(VERTICES[0]) * 3; // TODO hardcoded again baby
+	buf_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	VkResult result =
+		vkCreateBuffer(self->log_dev, &buf_info, NULL, &self->vertex_buffer);
+	if (result != VK_SUCCESS) {
+		fprintf(stderr, "Error with queing present, err: %s\n",
+			string_VkResult(result));
+	}
+}
+
 void vulkan_engine_init(vulkan_engine *self, SDL_Window *window)
 {
 	self->win = window;
@@ -1063,7 +1097,7 @@ void vulkan_engine_init(vulkan_engine *self, SDL_Window *window)
 	create_graphics_pipeline(self);
 	create_frame_buffers(self);
 	create_command_pool(self);
-	//create_command_buffer(self);
+	create_vertex_buffer(self);
 	create_command_buffers(self);
 	create_sync_objects(self);
 }
@@ -1100,6 +1134,7 @@ void vulkan_engine_cleanup(vulkan_engine *self)
 	if (self->initialized) {
 		vkDeviceWaitIdle(self->log_dev);
 		cleanup_swap_chain(self);
+		vkDestroyBuffer(self->log_dev, self->vertex_buffer, NULL);
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vkDestroySemaphore(self->log_dev, self->image_avail_sems[i],
 					   NULL);
