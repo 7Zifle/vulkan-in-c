@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 #include "vk/vk_types.h"
+#include <cglm/cglm.h>
 
 static const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -34,6 +35,11 @@ static void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 		func(instance, debugMessenger, pAllocator);
 	}
 }
+
+typedef struct {
+	vec4 pos;
+	vec3 color;
+} vertex;
 
 typedef struct {
 	Uint32 graphics_family;

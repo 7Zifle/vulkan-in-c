@@ -3,7 +3,7 @@
 #include <SDL2/SDL_vulkan.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include <string.h>
-#include <cglm/cglm.h>
+#include <stddef.h>
 
 #include "file.h"
 
@@ -24,6 +24,38 @@ const bool enable_validation_layers = true;
 #else
 const bool enable_validation_layers = false;
 #endif /* ifdef DEBUG */
+
+const vertex VERTICES[3] = { { { 0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
+			     { { 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
+			     { { -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } } };
+
+static VkVertexInputBindingDescription vertex_binding_description()
+{
+	VkVertexInputBindingDescription bind_desc;
+	bind_desc.binding = 0;
+	bind_desc.stride = sizeof(vertex);
+	bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	return bind_desc;
+}
+// Make sure to free returned array
+static VkVertexInputAttributeDescription *vertex_attribute_description()
+{
+	VkVertexInputAttributeDescription *attr_descs =
+		malloc(sizeof(VkVertexInputAttributeDescription) * 2);
+
+	attr_descs[0].binding = 0;
+	attr_descs[0].location = 0;
+	attr_descs[0].format = VK_FORMAT_R32G32_SFLOAT;
+	attr_descs[0].offset = offsetof(vertex, pos);
+
+	attr_descs[1].binding = 0;
+	attr_descs[1].location = 1;
+	attr_descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attr_descs[1].offset = offsetof(vertex, color);
+
+	return attr_descs;
+}
 
 static bool check_validation_layer_support()
 {
@@ -79,7 +111,6 @@ populate_debug_messenger_creat_info(VkDebugUtilsMessengerCreateInfoEXT *creat_in
 
 static void create_instance(vulkan_engine *self)
 {
-
 	self->win_extent.width = SCREEN_WIDTH;
 	self->win_extent.height = SCREEN_HEIGHT;
 	self->initialized = true;
@@ -96,7 +127,6 @@ static void create_instance(vulkan_engine *self)
 	self->pipeline_layout = NULL;
 	self->current_frame = 0;
 	self->fb_resized_flag = false;
-
 
 	VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -603,13 +633,19 @@ void create_graphics_pipeline(vulkan_engine *self)
 	dsci.dynamicStateCount = 2;
 	dsci.pDynamicStates = dynamic_states;
 
+	VkVertexInputBindingDescription vertex_bind_desc = vertex_binding_description();
+	VkVertexInputAttributeDescription *vertex_attr_decs =
+		vertex_attribute_description();
+
 	VkPipelineVertexInputStateCreateInfo visci;
 	memset(&visci, 0, sizeof(VkPipelineVertexInputStateCreateInfo));
 	visci.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	visci.vertexBindingDescriptionCount = 0;
-	visci.pVertexBindingDescriptions = NULL;
-	visci.vertexAttributeDescriptionCount = 0;
-	visci.pVertexAttributeDescriptions = NULL;
+
+	visci.vertexBindingDescriptionCount = 1;
+	visci.vertexAttributeDescriptionCount = 2;//TODO hard coded baby
+
+	visci.pVertexBindingDescriptions = &vertex_bind_desc;
+	visci.pVertexAttributeDescriptions = vertex_attr_decs;
 
 	VkPipelineInputAssemblyStateCreateInfo iaci;
 	memset(&iaci, 0, sizeof(VkPipelineInputAssemblyStateCreateInfo));
@@ -725,6 +761,8 @@ void create_graphics_pipeline(vulkan_engine *self)
 	}
 	vkDestroyShaderModule(self->log_dev, vert_mod, NULL);
 	vkDestroyShaderModule(self->log_dev, frag_mod, NULL);
+
+	free(vertex_attr_decs);
 
 	loaded_file_destroy(&vert_code);
 	loaded_file_destroy(&frag_code);
@@ -1048,7 +1086,6 @@ void cleanup_swap_chain(vulkan_engine *self)
 
 void vulkan_engine_recreate_swap_chain(vulkan_engine *self)
 {
-
 	vkDeviceWaitIdle(self->log_dev);
 
 	cleanup_swap_chain(self);
